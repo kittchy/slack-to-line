@@ -24,17 +24,20 @@ export const helloWorld = onRequest(async (request, response) => {
 
     if (accessToken === undefined || verificationToken === undefined) {
       logger.error("Invalid token");
+      response.status(400).send(request.body.challenge);
       return;
     }
     logger.info(request.body, {structuredData: true});
 
     if (typeof request.body.challenge !== "undefined") {
       logger.info(request.body.challenge, {structuredData: true});
+      response.status(400).send(request.body.challenge);
       return;
     }
 
     if (request.body.token !== verificationToken) {
       logger.error("Invalid token");
+      response.status(400).send("Invalid token");
       return;
     }
     // user特定
@@ -45,16 +48,33 @@ export const helloWorld = onRequest(async (request, response) => {
     const text = request.body.event.text;
     const formatedText = text.replace(/<@.*>/g, "");
     const resendText =
+      "\n💬 slackからのメッセージ\nfrom:" +
       realUserName +
-      "さんからのメッセージです\n" +
-      formatedText +
-      "\n詳しくはtutjazz.slack.comをご確認ください";
+      "\n" +
+      formatedText;
     logger.info(resendText, {structuredData: true});
-    logger.info("line notify")
+    logger.info("line notify");
+    await sendLineNotify(resendText);
+    response.status(200).send("ok");
   } catch (e) {
     logger.error(e);
   }
 });
 
-
-
+const sendLineNotify = async (message: string) => {
+  const url = "https://notify-api.line.me/api/notify";
+  const body: URLSearchParams = new URLSearchParams({
+    message: message,
+  });
+  const accessToken = process.env.LINE_ACCESS_TOKEN;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${accessToken}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body,
+  });
+  const json = await res.json();
+  logger.info(json, {structuredData: true});
+};
